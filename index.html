@@ -5,39 +5,66 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>MindForge</title>
 <style>
-  body { font-family: Arial, sans-serif; max-width: 700px; margin: 20px auto; background: #f7f7f7; padding: 15px; }
+  body { font-family: Arial, sans-serif; max-width: 900px; margin: 20px auto; background: #f7f7f7; padding: 15px; }
   h1, h2 { text-align: center; color: #333; }
-  .section { background: #fff; padding: 15px; margin-bottom: 25px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+  .section { background: #fff; padding: 15px; margin-bottom: 25px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.08); }
   input[type=text] { width: 65%; padding: 8px; margin-right: 8px; }
-  button { padding: 8px 15px; margin-right: 6px; cursor: pointer; border-radius: 5px; border: none; background-color: #4a90e2; color: white; }
+  button { padding: 8px 14px; margin-right: 6px; cursor: pointer; border-radius: 8px; border: none; background-color: #4a90e2; color: white; }
   button:hover { background-color: #357abd; }
   .item-btn { background: #eee; color: #555; margin-left: 10px; }
   .item-btn:hover { background: #f8d7da; color: #a71d2a; }
-  .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin: 10px 0; }
-  .calendar-header, .calendar-day { padding: 7px 0; text-align: center; user-select: none; border-radius: 6px; }
-  .calendar-header { font-weight: bold; background: #ddd; }
-  .calendar-day { background: #fff; cursor: pointer; transition: background 0.3s; }
-  .calendar-day.marked { background: #76c776; color: #1d5b1d; font-weight: bold; }
-  .progress-bar { background: #ddd; border-radius: 8px; height: 22px; margin-top: 5px; }
-  .progress-fill { background: #4a90e2; height: 100%; border-radius: 8px; transition: width 0.4s ease; }
+  .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 10px 0; }
+  .calendar-header, .calendar-day { padding: 8px 0; text-align: center; user-select: none; border-radius: 8px; }
+  .calendar-header { font-weight: bold; background: #e9e9e9; }
+  .calendar-day { background: #fff; cursor: pointer; transition: background 0.2s, transform 0.05s; border: 1px solid #eee; }
+  .calendar-day:hover { background: #f2f8ff; }
+  .calendar-day.marked { background: #76c776; color: #0b4e0b; font-weight: bold; border-color: #5ab85a; }
+  .progress-wrap { margin: 8px 0 2px; display: flex; align-items: center; gap: 10px; }
+  .progress-bar { flex: 1; background: #e4e8ef; border-radius: 999px; height: 16px; overflow: hidden; }
+  .progress-fill { background: #4a90e2; height: 100%; transition: width 0.4s ease; }
+  .pct { font-weight: 600; min-width: 48px; text-align: right; color: #333; }
   ul { margin-top: 12px; padding-left: 20px; }
   li { margin-bottom: 6px; }
   .info-list button { margin-left: 10px; }
   .back-btn { background-color: #999; }
   .back-btn:hover { background-color: #666; }
+  #statusMsg { font-size:14px; color:green; display:none; margin-top: 8px; }
+
+  /* Meses (lista) */
+  .months { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 740px){ .months { grid-template-columns: 1fr; } }
+  .month-card { border: 1px solid #e6e6e6; border-radius: 12px; padding: 12px; background: #fafafa; }
+  .month-head { display:flex; align-items:center; justify-content:space-between; gap: 10px; cursor: default; }
+  .month-title { font-weight: 700; color: #333; }
+  .month-actions { display:flex; align-items:center; gap: 8px; }
+  .toggle-btn { background:#555; }
+  .toggle-btn:hover { background:#333; }
+  .month-body { margin-top: 10px; display:none; }
+  .always-visible { margin-top: 6px; }
+  .muted { color:#6b7280; font-size: 13px; }
+  .chip { display:inline-block; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#3730a3; font-weight:600; }
+
+  /* Abas de Ano (2025–2030) */
+  .year-tabs { display:flex; gap:8px; flex-wrap: wrap; margin-bottom: 10px; justify-content:center; }
+  .year-tab { padding: 8px 12px; border-radius: 999px; border:1px solid #d1d5db; background:#fff; color:#374151; font-weight:600; cursor:pointer; }
+  .year-tab:hover { background:#f3f4f6; }
+  .year-tab.active { background:#4a90e2; color:#fff; border-color:#4a90e2; }
 </style>
 </head>
 <body>
 
 <h1>Evolução</h1>
-
-<h2>Seja ousado e forças poderosas o ajudarão - Johann Goethe</h2>
+<h2>Seja ousado e forças poderosas o ajudarão — Johann Goethe</h2>
 
 <div class="section" id="metasSection">
   <h3>Metas Diárias</h3>
   <input type="text" id="inputGoal" placeholder="Ex: Meditar 10 min" />
   <button onclick="addGoal()">Adicionar Meta</button>
   <ul id="listGoals"></ul>
+
+  <!-- Botão manual de sincronização -->
+  <button id="btnSalvar" onclick="salvarProgresso()">Salvar Progresso</button>
+  <p id="statusMsg">✔ Salvo com sucesso</p>
 </div>
 
 <div id="metaPage" style="display:none;"></div>
@@ -46,20 +73,33 @@
   // Meta: {nome:string, praticados:Set<string>, info:Array<string>}
   let goals = [];
 
+  // Ano selecionado (abas 2025–2030)
+  const YEAR_MIN = 2025;
+  const YEAR_MAX = 2030;
+  let selectedYear = clampYear(parseInt(localStorage.getItem('mfYear') || String(new Date().getFullYear()), 10));
+
+  function clampYear(y){
+    if (isNaN(y)) return new Date().getFullYear();
+    return Math.max(YEAR_MIN, Math.min(YEAR_MAX, y));
+  }
+
   function renderGoals() {
     const ul = document.getElementById('listGoals');
     ul.innerHTML = '';
     goals.forEach((goal, idx) => {
       const li = document.createElement('li');
       li.textContent = goal.nome;
+
       const btnView = document.createElement('button');
       btnView.textContent = 'Ver Meta';
       btnView.className = 'item-btn';
       btnView.onclick = ()=>openMetaPage(idx);
+
       const btnDel = document.createElement('button');
       btnDel.textContent = 'Excluir';
       btnDel.className = 'item-btn';
       btnDel.onclick = ()=>{ goals.splice(idx, 1); renderGoals(); };
+
       li.appendChild(btnView);
       li.appendChild(btnDel);
       ul.appendChild(li);
@@ -76,92 +116,171 @@
     }
   }
 
+  // ==== NOVO LAYOUT: Abas de Ano + Progresso Anual + Meses listados ====
   function openMetaPage(idx){
     const g = goals[idx];
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
+    const year = selectedYear;
 
-    // Dia 1 da semana (0=Domingo)
-    const firstDay = new Date(year, month,1).getDay();
+    // Abas de ano (2025–2030)
+    const years = [];
+    for (let y = YEAR_MIN; y <= YEAR_MAX; y++) years.push(y);
+    const yearTabs = `
+      <div class="year-tabs">
+        ${years.map(y => `
+          <button class="year-tab ${y===year?'active':''}" onclick="setYear(${y}, ${idx})">${y}</button>
+        `).join('')}
+      </div>
+    `;
 
-    // Número de dias do mês
+    // Cálculo anual
+    const daysInYear = isLeap(year)?366:365;
+    const praticadosAno = [...g.praticados].filter(d=>{
+      const dd = new Date(d);
+      return dd.getUTCFullYear()===year;
+    }).length;
+    const pctAno = Math.round((praticadosAno / daysInYear) * 100);
+
+    // Cabeçalho anual
+    const annualHtml = `
+      <div class="section">
+        ${yearTabs}
+        <div><b>Progresso Anual (${year})</b></div>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div id="annualFill" class="progress-fill" style="width:${pctAno}%;"></div></div>
+          <div id="annualPct" class="pct">${pctAno}%</div>
+        </div>
+        <div class="muted">Praticados ${praticadosAno} de ${daysInYear} dias</div>
+      </div>
+    `;
+
+    // Lista de meses (sempre mostrando % + botão de abrir calendário)
+    const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    let monthsHtml = '<div class="section"><h3>Progresso Mensal</h3><div class="months">';
+
+    for (let m = 0; m < 12; m++) {
+      const daysInMonth = new Date(year, m+1, 0).getDate();
+      const praticadosMes = [...g.praticados].filter(dateStr=>{
+        const d = new Date(dateStr);
+        return d.getUTCFullYear()===year && d.getUTCMonth()===m;
+      }).length;
+      const pctMes = Math.round((praticadosMes / daysInMonth) * 100);
+
+      const monthId = `month-${m}`;
+      const calId = `cal-${m}`;
+      const pctId = `pct-${m}`;
+      const barId = `fill-${m}`;
+
+      monthsHtml += `
+        <div class="month-card" id="${monthId}">
+          <div class="month-head">
+            <div class="month-title">${monthNames[m]} <span class="chip">${year}</span></div>
+            <div class="month-actions">
+              <button class="toggle-btn" onclick="toggleMonth('${calId}')">Abrir/Fechar</button>
+            </div>
+          </div>
+
+          <!-- Progresso do mês (sempre visível) -->
+          <div class="always-visible">
+            <div class="progress-wrap">
+              <div class="progress-bar"><div id="${barId}" class="progress-fill" style="width:${pctMes}%;"></div></div>
+              <div id="${pctId}" class="pct">${pctMes}%</div>
+            </div>
+            <div class="muted">Praticados ${praticadosMes} de ${daysInMonth} dias</div>
+          </div>
+
+          <!-- Calendário (abre/fecha) -->
+          <div class="month-body" id="${calId}">
+            ${buildCalendarHTML(idx, year, m)}
+          </div>
+        </div>
+      `;
+    }
+    monthsHtml += '</div></div>';
+
+    // Área de informações
+    const infoHtml = `
+      <div class="section">
+        <h3>Informações</h3>
+        <input type="text" id="inputInfo" placeholder="Anote aprendizado ou ideia..." />
+        <button onclick="addInfo(${idx})">Adicionar</button>
+        <ul id="infoList" class="info-list"></ul>
+        <button class="item-btn back-btn" onclick="voltar()">Voltar</button>
+      </div>
+    `;
+
+    document.getElementById('metaPage').innerHTML = annualHtml + monthsHtml + infoHtml;
+    document.getElementById('metaPage').style.display = 'block';
+    document.getElementById('metasSection').style.display = 'none';
+    renderInfo(idx);
+  }
+
+  function setYear(y, idx){
+    selectedYear = clampYear(y);
+    localStorage.setItem('mfYear', String(selectedYear));
+    openMetaPage(idx);
+  }
+
+  function toggleMonth(calId){
+    const el = document.getElementById(calId);
+    if(!el) return;
+    el.style.display = (el.style.display==='block') ? 'none' : 'block';
+  }
+
+  function buildCalendarHTML(idx, year, month){
+    const g = goals[idx];
+    const firstDay = new Date(year, month, 1).getDay(); // 0=Dom
     const daysInMonth = new Date(year, month+1, 0).getDate();
 
-    // Construir calendário
     let calHtml = '<div class="calendar">';
     ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].forEach(d=> calHtml+=`<div class="calendar-header">${d}</div>`);
     for(let i=0; i<firstDay; i++) calHtml+='<div></div>';
     for(let d=1; d<=daysInMonth; d++){
-      // Criar data ISO em UTC para evitar fuso
-      let dateISO = new Date(Date.UTC(year, month, d)).toISOString().slice(0,10);
-      let marked = g.praticados.has(dateISO);
-      calHtml+=`<div class="calendar-day${marked?' marked':''}" onclick="togglePraticado(${idx},'${dateISO}')">${d}</div>`;
+      const dateISO = new Date(Date.UTC(year, month, d)).toISOString().slice(0,10);
+      const marked = g.praticados.has(dateISO);
+      calHtml += `<div class="calendar-day${marked?' marked':''}" onclick="togglePraticadoMonth(${idx}, ${year}, ${month}, ${d})">${d}</div>`;
     }
-    calHtml+='</div>';
-
-    // Progresso mensal
-    let praticadosMes = [...g.praticados].filter(dateStr=>{
-      let d = new Date(dateStr);
-      return d.getUTCFullYear()===year && d.getUTCMonth()===month;
-    }).length;
-    let percentMes = Math.round(praticadosMes/daysInMonth*100);
-    let barWidthMes = Math.max(20, (praticadosMes/daysInMonth)*300);
-
-    // Progresso anual
-    const daysInYear = isLeap(year)?366:365;
-    let praticadosAno = [...g.praticados].filter(dateStr=>{
-      let d = new Date(dateStr);
-      return d.getUTCFullYear()===year;
-    }).length;
-    let percentAno = Math.round(praticadosAno/daysInYear*100);
-    let barWidthAno = Math.max(20, (praticadosAno/daysInYear)*300);
-
-    let progressHtml = `
-      <div>
-        <b>Progresso Mensal: ${praticadosMes} de ${daysInMonth} dias (${percentMes}%)</b>
-        <div class="progress-bar"><div class="progress-fill" style="width:${barWidthMes}px;"></div></div>
-      </div>
-      <div>
-        <b>Progresso Anual: ${praticadosAno} de ${daysInYear} dias (${percentAno}%)</b>
-        <div class="progress-bar" style="background:#ddf;"><div class="progress-fill" style="background:#3399cc; width:${barWidthAno}px;"></div></div>
-      </div>
-    `;
-
-    // Área de informações
-    let infoHtml = `
-      <h3>Informações</h3>
-      <input type="text" id="inputInfo" placeholder="Anote aprendizado ou ideia..." />
-      <button onclick="addInfo(${idx})">Adicionar</button>
-      <ul id="infoList" class="info-list"></ul>
-    `;
-
-    const backBtn = `<button class="item-btn back-btn" onclick="voltar()">Voltar</button>`;
-
-    document.getElementById('metaPage').innerHTML = `
-      <div class="section">
-        <h2>${g.nome}</h2>
-        ${progressHtml}
-        ${calHtml}
-        ${infoHtml}
-        ${backBtn}
-      </div>
-    `;
-    document.getElementById('metaPage').style.display = 'block';
-    document.getElementById('metasSection').style.display = 'none';
-
-    renderInfo(idx);
+    calHtml += '</div>';
+    return calHtml;
   }
 
-  // Marcar ou desmarcar dia praticado
-  function togglePraticado(idx, dateISO){
-    let g = goals[idx];
+  // Ao clicar num dia dentro de um mês específico (mantém layout e recálculos)
+  function togglePraticadoMonth(idx, year, month, day){
+    const g = goals[idx];
+    const dateISO = new Date(Date.UTC(year, month, day)).toISOString().slice(0,10);
+
     if(g.praticados.has(dateISO)) g.praticados.delete(dateISO);
     else g.praticados.add(dateISO);
-    openMetaPage(idx);
+
+    // Re-renderiza somente aquele mês (calendário + barras mensais)
+    const calId = `cal-${month}`;
+    const monthBody = document.getElementById(calId);
+    if (monthBody) monthBody.innerHTML = buildCalendarHTML(idx, year, month);
+
+    // Atualiza barra mensal e texto
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+    const praticadosMes = [...g.praticados].filter(dateStr=>{
+      const d = new Date(dateStr);
+      return d.getUTCFullYear()===year && d.getUTCMonth()===month;
+    }).length;
+    const pctMes = Math.round((praticadosMes / daysInMonth) * 100);
+    const barId = `fill-${month}`;
+    const pctId = `pct-${month}`;
+    const barEl = document.getElementById(barId);
+    const pctEl = document.getElementById(pctId);
+    if (barEl) barEl.style.width = `${pctMes}%`;
+    if (pctEl) pctEl.textContent = `${pctMes}%`;
+
+    // Atualiza barra anual
+    const daysInYear = isLeap(year)?366:365;
+    const praticadosAno = [...g.praticados].filter(ds => (new Date(ds)).getUTCFullYear()===year).length;
+    const pctAno = Math.round((praticadosAno / daysInYear)*100);
+    const annualFill = document.getElementById('annualFill');
+    const annualPct  = document.getElementById('annualPct');
+    if (annualFill) annualFill.style.width = `${pctAno}%`;
+    if (annualPct)  annualPct.textContent = `${pctAno}%`;
   }
 
-  // Adicionar informação texto
+  // Informações livres
   function addInfo(idx){
     const input = document.getElementById('inputInfo');
     let val = input.value.trim();
@@ -171,14 +290,10 @@
       renderInfo(idx);
     }
   }
-
-  // Excluir informação texto
   function deleteInfo(idx, infoIdx){
     goals[idx].info.splice(infoIdx,1);
     renderInfo(idx);
   }
-
-  // Renderiza lista info
   function renderInfo(idx){
     const ul = document.getElementById('infoList');
     if(!ul) return;
@@ -195,7 +310,6 @@
     });
   }
 
-  // Voltar para página metas
   function voltar(){
     document.getElementById('metaPage').style.display = 'none';
     document.getElementById('metasSection').style.display = 'block';
@@ -207,7 +321,120 @@
     return (year%4===0)&&(year%100!==0 || year%400===0);
   }
 
-  renderGoals();
+  /* ============================
+     BLOCO GITHUB SYNC (CONFIG)
+     ============================ */
+
+  // Token (pedimos apenas quando necessário e guardamos no navegador)
+  let githubToken = localStorage.getItem('githubToken');
+  async function solicitarTokenSeNecessario() {
+    if (!githubToken) {
+      githubToken = prompt("Digite seu GitHub Personal Access Token (escopo: repo):");
+      if (!githubToken) throw new Error('Token não fornecido.');
+      localStorage.setItem('githubToken', githubToken);
+    }
+  }
+
+  // Config do GitHub
+  const GH = {
+    owner: 'augusto-crp',
+    repo:  'evolucao',
+    branch:'main',
+    path:  'data/progresso.json',
+    author:{ name: 'augusto-crp', email: '104801281+augusto-crp@users.noreply.github.com' }
+  };
+
+  // Helpers base64 (Unicode-safe)
+  function toBase64(str) { return btoa(unescape(encodeURIComponent(str))); }
+  function fromBase64(b64) { return decodeURIComponent(escape(atob(b64))); }
+  function ghHeaders(auth = true) {
+    const h = { 'Accept':'application/vnd.github+json','Content-Type':'application/json' };
+    if (auth && githubToken) h['Authorization'] = `Bearer ${githubToken}`;
+    return h;
+  }
+
+  async function getFileSha() {
+    const url = `https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${GH.path}?ref=${GH.branch}`;
+    const res = await fetch(url, { headers: ghHeaders(!!githubToken) });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Falha ao obter SHA: ${res.status}`);
+    const data = await res.json();
+    return data.sha || null;
+  }
+
+  async function salvarNoGithub(jsonStr) {
+    const url = `https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${GH.path}`;
+    const sha = await getFileSha();
+    const body = {
+      message: 'chore: salvar progresso via site',
+      content: toBase64(jsonStr),
+      branch: GH.branch,
+      committer: GH.author,
+      author: GH.author,
+      ...(sha ? { sha } : {})
+    };
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: ghHeaders(true),
+      body: JSON.stringify(body)
+    });
+    if (res.status === 403) throw new Error('403 (Branch protection): a branch pode estar protegida contra commits diretos.');
+    if (!res.ok) { const t = await res.text(); throw new Error(`Falha ao salvar no GitHub: ${res.status} - ${t}`); }
+    return await res.json();
+  }
+
+  async function carregarDaNuvem() {
+    const url = `https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${GH.path}?ref=${GH.branch}`;
+    let res = await fetch(url, { headers: ghHeaders(false) });
+    if (res.status === 401 || res.status === 403) {
+      await solicitarTokenSeNecessario();
+      res = await fetch(url, { headers: ghHeaders(true) });
+    }
+    if (res.status === 404) return; // ainda nada salvo
+    if (!res.ok) throw new Error(`Falha ao carregar da nuvem: ${res.status}`);
+
+    const data = await res.json();
+    const json = fromBase64(data.content || '');
+    const parsed = JSON.parse(json);
+    goals = parsed.map(g => ({
+      nome: g.nome,
+      praticados: new Set(g.praticados || []),
+      info: Array.isArray(g.info) ? g.info : []
+    }));
+  }
+
+  async function salvarProgresso() {
+    const msg = document.getElementById('statusMsg');
+    try {
+      const plain = goals.map(g => ({
+        nome: g.nome,
+        praticados: Array.from(g.praticados || []),
+        info: Array.isArray(g.info) ? g.info : []
+      }));
+      const json = JSON.stringify(plain, null, 2);
+      await solicitarTokenSeNecessario();
+      await salvarNoGithub(json);
+
+      msg.style.display = 'block';
+      msg.style.color = 'green';
+      msg.textContent = '✔ Salvo com sucesso';
+      setTimeout(()=>{ msg.style.display='none'; }, 2500);
+    } catch (e) {
+      console.error(e);
+      msg.style.display = 'block';
+      msg.style.color = 'crimson';
+      msg.textContent = '✖ Erro ao salvar: ' + e.message;
+      alert('Falha ao salvar no GitHub: ' + e.message);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    // Garante ano dentro do intervalo ao iniciar
+    selectedYear = clampYear(selectedYear);
+    try { await carregarDaNuvem(); } 
+    catch(e) { console.warn('Não foi possível carregar da nuvem:', e.message); }
+    finally { renderGoals(); }
+  });
 </script>
 
 </body>
